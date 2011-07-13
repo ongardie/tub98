@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2011 Stanford University
+ * Copyright (c) 2011 Facebook
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,12 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef RAMCLOUD_TUB_H
-#define RAMCLOUD_TUB_H
+#ifndef TUB_H
+#define TUB_H
 
-#include "Common.h"
-
-namespace RAMCloud {
+#include <inttypes.h>
 
 /**
  * A Tub holds an object that may be uninitialized; it allows the allocation of
@@ -223,6 +222,4 @@ class Tub {
     bool occupied;
 };
 
-} // end RAMCloud
-
-#endif  // RAMCLOUD_TUB_H
+#endif  // TUB_H

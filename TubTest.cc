@@ -1,4 +1,5 @@
 /* Copyright (c) 2010 Stanford University
+ * Copyright (c) 2011 Facebook
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,10 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "TestUtil.h"
+#include <gtest/gtest.h>
+#include <vector>
+
 #include "Tub.h"
 
-namespace RAMCloud {
+namespace {
+
+using std::vector;
 
 static_assert(__alignof__(Tub<char>) == 1,
               "Alignment of Tub<char> is wrong");
@@ -99,4 +104,9 @@ TEST(Tub, boolConversion) {
     EXPECT_TRUE(x);
 }
 
-}  // namespace RAMCloud
+}  // anonymous namespace
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
