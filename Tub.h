@@ -23,10 +23,11 @@
  * A Tub holds an object that may be uninitialized; it allows the allocation of
  * memory for objects to be separated from its construction and destruction.
  * When you initially create a Tub its object is uninitialized (and should not
- * be used). You can call #construct and #destroy to invoke the constructor and
- * destructor of the embedded object, and #get or #operator-> will return the
- * embedded object. The embedded object is automatically destroyed when the Tub
- * is destroyed (if it was ever constructed in the first place).
+ * be used). You can use placement new and call #destroy to invoke the
+ * constructor and destructor of the embedded object, and #get or #operator->
+ * will return the embedded object. The embedded object is automatically
+ * destroyed when the Tub is destroyed (if it was ever constructed in the first
+ * place).
  *
  * Tubs are useful in situations like the following:
  * - You want to create an array of objects, but the objects need complex
@@ -46,6 +47,13 @@
  *  - You want optional arguments to a function, but don't want to use pointers
  *    (i.e. use the Tub's boolean to determine that an argument was passed,
  *    rather than checking arg != NULL).
+ *
+ * To construct the element inside a Tub, use operator new syntax. For
+ * instance, with a Tub<int> called t, use
+ *      new(t) int(6)
+ * to construct t's element as 6. If you construct an element in a tub that
+ * already contains an element, the previous element will be automatically
+ * destroyed.
  *
  * Tub is CopyConstructible if and only if ElementType is CopyConstructible,
  * and Tub is Assignable if and only if ElementType is Assignable.
@@ -77,7 +85,7 @@ class Tub {
     Tub(const ElementType& other) // NOLINT
         : occupied(false)
     {
-        construct(other);
+        new(*this) ElementType(other);
     }
 
     /**
@@ -92,8 +100,10 @@ class Tub {
     Tub(const Tub<ElementType>& other) // NOLINT
         : occupied(false)
     {
-        if (other.occupied)
-            construct(*other.object); // use ElementType's copy constructor
+        if (other.occupied) {
+            // use ElementType's copy constructor
+            new(*this) ElementType(*other.object);
+        }
     }
 
     /**
@@ -119,25 +129,6 @@ class Tub {
             }
         }
         return *this;
-    }
-
-    /**
-     * Initialize the object.
-     * If the object was already initialized, it will be destroyed first.
-     * \param args
-     *      Arguments to ElementType's constructor.
-     * \return
-     *      A pointer to the newly initialized object.
-     * \post
-     *      The object is initialized.
-     */
-    template<typename... Args>
-    ElementType*
-    construct(Args&&... args) {
-        destroy();
-        new(object) ElementType(static_cast<Args&&>(args)...);
-        occupied = true;
-        return object;
     }
 
     /**
@@ -220,6 +211,33 @@ class Tub {
      * Whether the object is initialized.
      */
     bool occupied;
+
+    template<typename _ElementType>
+    friend void* operator new(size_t numBytes, Tub<_ElementType>& tub);
+
+    template<typename _ElementType>
+    friend void operator delete(void* p, Tub<_ElementType>& tub);
 };
+
+/**
+ * Called during placement new.
+ */
+template<typename ElementType>
+void* operator new(size_t numBytes, Tub<ElementType>& tub) {
+    assert(numBytes == sizeof(ElementType));
+    tub.destroy();
+    tub.occupied = true;
+    return tub.object;
+}
+
+/**
+ * Called during placement new if ElementType's constructor throws an
+ * exception.
+ */
+template<typename ElementType>
+void operator delete(void* p, Tub<ElementType>& tub) {
+    assert(p == tub.object);
+    tub.occupied = false;
+}
 
 #endif  // TUB_H

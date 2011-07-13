@@ -23,15 +23,12 @@ namespace {
 
 using std::vector;
 
-static_assert(__alignof__(Tub<char>) == 1,
-              "Alignment of Tub<char> is wrong");
-static_assert(__alignof__(Tub<uint64_t>) == 8,
-              "Alignment of Tub<uint64_t> is wrong");
-
 struct Foo {
-    Foo(int x, int y, int z = 0)
+    Foo(int x, int y, int z = 0, bool pleaseThrowAnException = false)
         : x(x) , y(y) , z(z)
     {
+        if (pleaseThrowAnException)
+            throw -1;
         ++liveCount;
     }
     ~Foo() {
@@ -49,10 +46,11 @@ typedef Tub<Foo> FooTub;
 typedef Tub<int> IntTub;
 
 TEST(Tub, basics) {
+    Foo::liveCount = 0;
     {
         FooTub fooTub;
         EXPECT_FALSE(fooTub);
-        Foo* foo = fooTub.construct(1, 2, 3);
+        Foo* foo = new(fooTub) Foo(1, 2, 3);
         EXPECT_TRUE(fooTub);
         EXPECT_EQ(1, foo->x);
         EXPECT_EQ(2, foo->y);
@@ -61,7 +59,7 @@ TEST(Tub, basics) {
         EXPECT_EQ(foo, &*fooTub);
         EXPECT_EQ(1, fooTub->getX());
 
-        EXPECT_EQ(foo, fooTub.construct(5, 6));
+        EXPECT_EQ(foo, new(fooTub) Foo(5, 6));
         EXPECT_EQ(5, foo->x);
         EXPECT_EQ(6, foo->y);
         EXPECT_EQ(0, foo->z);
@@ -69,9 +67,14 @@ TEST(Tub, basics) {
     EXPECT_EQ(0, Foo::liveCount);
 }
 
+TEST(Tub, alignment) {
+    EXPECT_EQ(1, __alignof__(Tub<char>));
+    EXPECT_EQ(8, __alignof__(Tub<uint64_t>));
+}
+
 TEST(Tub, copyAndAssign) {
     IntTub x;
-    x.construct(5);
+    new(x) int(5);
     IntTub y;
     y = x;
     IntTub z(y);
@@ -87,7 +90,7 @@ TEST(Tub, putInVector) {
     vector<IntTub> v;
     v.push_back(IntTub());
     IntTub eight;
-    eight.construct(8);
+    new(eight) int(8);
     v.push_back(eight);
     v.insert(v.begin(), IntTub());
     EXPECT_FALSE(v[0]);
@@ -100,8 +103,19 @@ TEST(Tub, putInVector) {
 TEST(Tub, boolConversion) {
     IntTub x;
     EXPECT_FALSE(x);
-    x.construct(5);
+    new(x) int(5);
     EXPECT_TRUE(x);
+}
+
+TEST(Tub, elementConstructorException) {
+    Foo::liveCount = 0;
+    FooTub x;
+    try {
+        new(x) Foo(1, 2, 3, true);
+    } catch (int) {
+    }
+    EXPECT_FALSE(x);
+    EXPECT_EQ(0, Foo::liveCount);
 }
 
 }  // anonymous namespace
